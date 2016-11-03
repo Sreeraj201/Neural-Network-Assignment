@@ -6,7 +6,6 @@ import time
 class NeuralNet:
     """
     Neural Network class
-    Contains Dropout, Regularization and Early stopping
     """
     def __init__(self,X_train,y_train,X_test,y_test,hid_list,hyperparams):
         """
@@ -138,6 +137,8 @@ class NeuralNet:
     def forward_prop(self,x):
         """
         Forward propagation
+        Input - 
+            x : input
         """
         hid_cache = []
         hid_output = []
@@ -404,7 +405,8 @@ if __name__ == "__main__":
     # Gather data
     X_train,y_train,X_test,y_test = load_mnist("Dataset/")
     # list of hidden neurons in each layer
-    hid_list = [1000,500,100]
+    # hid_list = [1000,500,100]
+    hid_list = [1000,250]
 
     # hyperparameters
     hyperparams = {}
