@@ -26,17 +26,17 @@ class NeuralNet:
                 batch_size : minibatch size
         """
         # # Development
-        X_train = X_train[:2200]
-        y_train = y_train[:2200]
-        X_test = X_test[:500]
-        y_test = y_test[:500]
+        # X_train = X_train[:2200]
+        # y_train = y_train[:2200]
+        # X_test = X_test[:500]
+        # y_test = y_test[:500]
 
         # store data; training 80%, validation 20%
-        # loc = int(0.8 * X_train.shape[0])
-        self.X_train = X_train[:2000]
-        self.y_train = y_train[:2000]
-        self.X_val = X_train[2000:]
-        self.y_val = y_train[2000:]
+        loc = int(0.8 * X_train.shape[0])
+        self.X_train = X_train[:loc]
+        self.y_train = y_train[:loc]
+        self.X_val = X_train[loc:]
+        self.y_val = y_train[loc:]
         self.X_test = X_test
         self.y_test = y_test
 
@@ -198,6 +198,7 @@ class NeuralNet:
             else:
                 delta,dw,db = self._backward_step(delta,hid_cache[i])
             self.grads["W" + str(i+1)],self.grads["b" + str(i+1)] = dw,db
+            self.grads["W" + str(i+1)] += self.reg * self.params["W" + str(i+1)]
     ##################################
     
     # Loss calculator
@@ -299,17 +300,17 @@ class NeuralNet:
             3) Backpropagate the network
             4) Update the parameters using gradient descent
         """
-        if mode == "validation":
-            self.dropout_config["mode"] = "test"
-        else:
+        if mode == "training":
             self.dropout_config["mode"] = "train"
+        else:
+            self.dropout_config["mode"] = "test"
         # forward prop
         out,hid_cache = self.forward_prop(x)
         # calculate loss 
         loss,delta,out = self.loss_grad(out,y)
 
         # validation dont update wts and return loss
-        if mode == "validation":
+        if mode != "training":
             return loss,out
 
         # backprop
@@ -379,7 +380,6 @@ class NeuralNet:
                 batch_id = (batch_id + 1)%self.num_batch
                 self.model_process(x,y)
 
-
         # plot
         _,axes = plt.subplots(1,2,figsize = (30,10))
         axes[0].plot(xrange(len(training_loss_history)),training_loss_history,label = "training loss")
@@ -392,14 +392,12 @@ class NeuralNet:
         print training_miss_history[-1]
         print validation_miss_history[-1]
 
-
         # get the best params
         self.params = best_params.copy()
-        test_loss,out = self.model_process(self.X_test,self.y_test,mode = "validation")
+        test_loss,out = self.model_process(self.X_test,self.y_test,mode = "testing")
         test_miss = self.missclassification_rate(np.argmax(out,axis = 1),np.argmax(self.y_test,axis = 1))*100/self.y_test.shape[0]
 
         print test_miss
-
 
 
 if __name__ == "__main__":
@@ -419,5 +417,8 @@ if __name__ == "__main__":
     # Initialize network
     net = NeuralNet(X_train,y_train,X_test,y_test,hid_list,hyperparams)
     # Run the network
+    start_time = time.time()
     net.run()
+    end_time = time.time()
+    print "Total time to run is {}".format(end_time - start_time)
 
