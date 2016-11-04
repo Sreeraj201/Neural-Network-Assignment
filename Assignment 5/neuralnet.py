@@ -19,7 +19,7 @@ class Neuralnet:
         # initalize weights
         self.W = np.random.rand(1,3*h + 1)
 
-        # Number of inputs, outputs
+        # Number of inputs, hidden
         self.n = n
         self.h = h
 
@@ -43,7 +43,7 @@ class Neuralnet:
         out = np.zeros((1,1))
         hiddenout = np.tanh(self.X[i] * W1 + b1)
         out = np.sum(hiddenout * W2 + b2)
-        
+
         # store for backprop
         cache = W2
 
@@ -127,5 +127,5 @@ class Neuralnet:
         plt.show()
 
 if __name__ == "__main__":
-    net = Neuralnet(30,24)
+    net = Neuralnet(300,24)
     net.run()

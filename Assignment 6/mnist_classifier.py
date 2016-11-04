@@ -11,12 +11,11 @@ class NeuralNet:
         """
         Initialize
         Inputs - 
-            data : Input shape NXD
-            label : Desired output NXC
-            X_train : Training data
-            y_train : Training output
+            X_train : Training data shape NXD
+            y_train : Training output shape NXC
             X_test : Testing data
             y_test : Testing output
+            hid_list : list of hidden neurons; length denotes the number of hidden layers
             hyperparams : Dictionary of hyper parameters 
                 reg : regularization 
                 learning_rate : learning rate 
@@ -109,13 +108,13 @@ class NeuralNet:
         out = np.dot(x,w) + b
         # Relu
         reluout = np.maximum(0,out)
-
         # dropout
         p = self.dropout_config["p"]
         mode = self.dropout_config["mode"]
         mask = (np.random.rand(*reluout.shape) < p)/p
         if mode == "train":
             reluout *= mask
+        # store values for backward pass
         cache = x,w,out,mask,mode
 
         return reluout,cache
@@ -199,6 +198,7 @@ class NeuralNet:
             else:
                 delta,dw,db = self._backward_step(delta,hid_cache[i])
             self.grads["W" + str(i+1)],self.grads["b" + str(i+1)] = dw,db
+            # reg term derivative
             self.grads["W" + str(i+1)] += self.reg * self.params["W" + str(i+1)]
     ##################################
     
