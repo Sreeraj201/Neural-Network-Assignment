@@ -54,7 +54,7 @@ class Neuralnet:
         """
         Calculate MSE loss
         """
-        return (y - out)**2
+        return np.sum((y.T - out)**2)/self.n
 
     def tanh_derivative(self,x):
         """
@@ -107,23 +107,30 @@ class Neuralnet:
         """
         Run the network
         """
+        loss_history = []
         # Online training of the network
         for epoch in range(100000):
+            net_out = np.zeros((1,self.n))
             for i in range(self.n):
                 out,hiddenout,cache = self.forward_prop(i)
-                loss = self.mse_loss(out,self.D[i])
                 grads = self.backward_prop(i,out,hiddenout,cache)
                 self.update(grads)
 
-        # Final output with trained weights
-        net_out = np.zeros((1,self.n))
-        for i in range(self.n):
-            out,_,_ = self.forward_prop(i)
-            net_out[0,i] = out
+            net_out = np.zeros((1,self.n))
+            for i in range(self.n):
+                out,_,_ = self.forward_prop(i)
+                net_out[0,i] = out
+
+            loss = self.mse_loss(net_out,self.D)
+            if len(loss_history) > 1 and np.abs(loss - loss_history[-1]) < 1e-7:
+                break
+            loss_history.append(loss)
 
         # plot
         plt.scatter(self.X,self.D,c = "b")
         plt.scatter(self.X,net_out,c = "r")
+        plt.show()
+        plt.plot(range(len(loss_history)),loss_history)
         plt.show()
 
 if __name__ == "__main__":

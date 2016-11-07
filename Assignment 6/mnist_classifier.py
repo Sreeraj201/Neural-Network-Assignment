@@ -28,6 +28,7 @@ class NeuralNet:
         # y_train = y_train[:2200]
         # X_test = X_test[:500]
         # y_test = y_test[:500]
+        # loc = 2000
 
         # store data; training 80%, validation 20%
         loc = int(0.8 * X_train.shape[0])
@@ -129,6 +130,9 @@ class NeuralNet:
             b : bias shape 1XC
         """
         out = np.dot(x,w) + b
+        # softmax
+        out = np.exp(out - np.max(out,axis = 1,keepdims = True))
+        out /= np.sum(out,axis = 1,keepdims = True)
         cache = x,w
 
         return out,cache
@@ -153,13 +157,19 @@ class NeuralNet:
     #######################
 
     # Backward prop
-    def _final_backward(self,delta,cache):
+    def _final_backward(self,out,y,cache):
         """
         Final layer backprop
         Inputs - 
-            delta backward flow input shape NXH
+            out : Network output NXC
         """
         x,w = cache
+
+        z = np.argmax(y,axis = 1)
+        delta = out.copy()
+        # derivative changes only for correct label
+        delta[np.arange(out.shape[0]),z] -= 1
+        delta /= out.shape[0]
 
         db = np.sum(delta,axis = 0) 
         dw = np.dot(x.T,delta)
@@ -186,7 +196,7 @@ class NeuralNet:
 
         return dx,dw,db
 
-    def backward_prop(self,delta,hid_cache):
+    def backward_prop(self,delta,y,hid_cache):
         """
         Backward propagation
         Inputs - 
@@ -194,7 +204,7 @@ class NeuralNet:
         """
         for i in reversed(xrange(self.num_layers)):
             if i+1 == self.num_layers:
-                delta,dw,db = self._final_backward(delta,hid_cache[i])
+                delta,dw,db = self._final_backward(delta,y,hid_cache[i])
             else:
                 delta,dw,db = self._backward_step(delta,hid_cache[i])
             self.grads["W" + str(i+1)],self.grads["b" + str(i+1)] = dw,db
@@ -203,39 +213,16 @@ class NeuralNet:
     ##################################
     
     # Loss calculator
-    def softmax_loss(self,out,y = None):
-        """
-        Calculates softmax loss
-        Inputs - 
-            x : Network output
-            y : Desired output
-        """
-        # numerical stability
-        out = np.exp(out - np.max(out,axis = 1,keepdims = True))
-        out /= np.sum(out,axis = 1,keepdims = True)
-        # for test data
-        if y is None:
-            return out
-        # get desired labels
-        z = np.argmax(y,axis = 1)
-        # loss
-        loss = -np.sum(np.log(out[np.arange(y.shape[0]),z]))/out.shape[0]
-        delta = out.copy()
-        # derivative changes only for correct label
-        delta[np.arange(out.shape[0]),z] -= 1
-        delta /= out.shape[0]
-
-        return loss,delta,out
-
-    def loss_grad(self,x,y = None):
+    def cross_loss(self,out,y = None):
         """
         Calculates loss and gradients
         Inputs - 
-            x : Network output
+            out : Network output
             y : Desired output
         """
-        # cross entropy loss (softmax)
-        data_loss,delta,out = self.softmax_loss(x,y)
+        z = np.argmax(y,axis = 1)
+        # cross entropy loss
+        data_loss = -np.sum(np.log(out[np.arange(y.shape[0]),z]))/out.shape[0]
         # L2 regularization loss
         reg_loss = 0
         for i in xrange(self.num_layers):
@@ -244,7 +231,7 @@ class NeuralNet:
         # total loss
         loss = data_loss + reg_loss
 
-        return loss,delta,out
+        return loss
     ###########################
 
     # Update Parameters
@@ -297,7 +284,7 @@ class NeuralNet:
         Starts the process of the model
         Steps - 
             1) Forward propagate the network
-            2) Calculate loss and gradient at output
+            2) Calculate loss
             3) Backpropagate the network
             4) Update the parameters using gradient descent
         """
@@ -308,14 +295,14 @@ class NeuralNet:
         # forward prop
         out,hid_cache = self.forward_prop(x)
         # calculate loss 
-        loss,delta,out = self.loss_grad(out,y)
+        loss = self.cross_loss(out,y)
 
-        # validation dont update wts and return loss
+        # validation dont update wts and return loss and output
         if mode != "training":
             return loss,out
 
         # backprop
-        self.backward_prop(delta,hid_cache)
+        self.backward_prop(out,y,hid_cache)
         # update weights
         self.iter_update()
 
@@ -381,24 +368,43 @@ class NeuralNet:
                 batch_id = (batch_id + 1)%self.num_batch
                 self.model_process(x,y)
 
+
+        #Change miss to accuracy 
+        for i in xrange(len(training_miss_history)):
+            training_miss_history[i] = 100 - training_miss_history[i]
+            validation_miss_history[i] = 100 - validation_miss_history[i]
+
         # plot
         _,axes = plt.subplots(1,2,figsize = (30,10))
         axes[0].plot(xrange(len(training_loss_history)),training_loss_history,label = "training loss")
         axes[0].plot(xrange(len(validation_loss_history)),validation_loss_history,label = "validation loss")
+        axes[0].set_xlabel("Epoch")
+        axes[0].set_ylabel("Accuracy")
         axes[0].legend()
-        axes[1].plot(xrange(len(training_miss_history)),training_miss_history,label = "training miss")
-        axes[1].plot(xrange(len(validation_miss_history)),validation_miss_history,label = "validation miss")
+        axes[1].plot(xrange(len(training_miss_history)),training_miss_history,label = "training accuracy")
+        axes[1].plot(xrange(len(validation_miss_history)),validation_miss_history,label = "validation accuracy")
         axes[1].legend()
+        axes[1].set_xlabel("Epoch")
+        axes[1].set_ylabel("Accuracy")
+
+        box = axes[1].get_position()
+        axes[1].set_position([box.x0, box.y0, box.width * 0.8, box.height])
+
+        # Put a legend to the right of the current axis
+        axes[1].legend(loc='center left', bbox_to_anchor=(1, 0.5))
+
+
+
         plt.show()
-        print training_miss_history[-1]
-        print validation_miss_history[-1]
+        print "Training accuracy is {}".format(training_miss_history[-1])
+        print "Validation accuracy is {}".format(validation_miss_history[-1])
 
         # get the best params
         self.params = best_params.copy()
         test_loss,out = self.model_process(self.X_test,self.y_test,mode = "testing")
         test_miss = self.missclassification_rate(np.argmax(out,axis = 1),np.argmax(self.y_test,axis = 1))*100/self.y_test.shape[0]
 
-        print test_miss
+        print "Testing accuracy is {}".format(100 - test_miss)
 
 
 if __name__ == "__main__":
@@ -407,13 +413,15 @@ if __name__ == "__main__":
     # list of hidden neurons in each layer
     # hid_list = [1000,500,100]
     hid_list = [1000,250]
+    # hid_list = [1000]
+    # hid_list = [800,250]
 
     # hyperparameters
     hyperparams = {}
     hyperparams["learning_rate"] = 1e-3
     hyperparams["learning_rate_decay"] = 0.9
     hyperparams["batch_size"] = 200
-    hyperparams["epoch"] = 100
+    hyperparams["epoch"] = 25
     hyperparams["reg"] = 1e-3
 
     # Initialize network
